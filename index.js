@@ -236,7 +236,7 @@ client.on(Events.MessageCreate, async message => {
   // Update DB
   activeEvent.status  = 'won';
   activeEvent.winner  = winner.id;
-  activeEvent.winnerTag = winner.tag;
+  activeEvent.winnerTag = winner.username;
   db.events[activeEvent.id] = activeEvent;
   saveDB(db);
 
@@ -244,7 +244,7 @@ client.on(Events.MessageCreate, async message => {
   try {
     const host = await client.users.fetch(activeEvent.hostUserId);
     await host.send(
-      `**${winner.tag}** has won the event! The number **${activeEvent.number}** was guessed!\n` +
+      `**${winner.username}** has won the event! The number **${activeEvent.number}** was guessed!\n` +
       `Event ID: \`${activeEvent.id}\`\nUse \`/endevent ${activeEvent.id}\` to officially end the event and unlock the chat.`,
     );
   } catch (e) {
@@ -339,7 +339,7 @@ async function handleLeagueCommand(interaction) {
     db.leagues[leagueId] = {
       id: leagueId,
       hostId:   interaction.user.id,
-      hostTag:  interaction.user.tag,
+      hostTag:  interaction.user.username,
       format,
       type,
       perks,
@@ -706,13 +706,28 @@ async function handleStartEventButton(interaction, eventId) {
   event.status  = 'active';
   saveDB(db);
 
-  // Remove buttons from the event embed
+  // Rebuild the embed cleanly with updated Status, remove buttons
   try {
-    const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0]).spliceFields(
-      interaction.message.embeds[0].fields.findIndex(f => f.name === 'Status'),
-      1,
-      { name: 'Status', value: 'Active — Accepting Guesses', inline: true },
-    );
+    const updatedEmbed = new EmbedBuilder()
+      .setTitle('Guess The Number Event')
+      .setColor(0xF1C40F)
+      .addFields(
+        { name: 'Event ID',  value: `\`${eventId}\``,                       inline: true },
+        { name: 'Host',      value: event.hostName,                          inline: true },
+        { name: 'Funder',    value: event.funder,                            inline: true },
+        { name: 'Prize',     value: event.prize,                             inline: true },
+        { name: 'Range',     value: `${event.rangeMin} – ${event.rangeMax}`, inline: true },
+        { name: 'Status',    value: 'Active — Accepting Guesses',            inline: true },
+        {
+          name: 'How Does the Event Work?',
+          value:
+            'In this event, you will try to guess a randomly selected number within the given range.\n' +
+            'The first person to guess the correct number wins the prize for this event!\n' +
+            '**You cannot say more than 2 numbers at once.**',
+        },
+        { name: 'Where to Participate', value: `<#${GENERAL_CHAT}>` },
+      )
+      .setTimestamp();
     await interaction.message.edit({ embeds: [updatedEmbed], components: [] });
   } catch (e) {
     console.error('Failed to update event embed:', e);
@@ -871,7 +886,7 @@ async function handleWarnings(interaction) {
       ).join('\n');
 
   const embed = new EmbedBuilder()
-    .setTitle(`Warnings — ${target.tag}`)
+    .setTitle(`Warnings — ${target.username}`)
     .setColor(0xE74C3C)
     .setDescription(description)
     .addFields({ name: 'Total Warnings', value: `${warns.length}` })
